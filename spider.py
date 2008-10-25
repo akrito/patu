@@ -111,12 +111,14 @@ def test(options, args):
 
 if __name__ == '__main__':
     parser = OptionParser()
-    parser.add_option("-s", "--spiders", dest="spiders", type="int", default=1, help="how many spiders to send")
-    parser.add_option("-S", "--nospinner", dest="spinner", action="store_false", default=True)
-    parser.add_option("-v", "--verbose", dest="verbose", action="store_true", default=False)
-    parser.add_option("-d", "
-    parser.add_option("
-    parser.add_option("
-    # TODO follow redirects?
+    options_a = [
+        ["-s", "--spiders", dict(dest="spiders", type="int", default=1, help="sends more than one spider")],
+        ["-S", "--nospinner", dict(dest="spinner", action="store_false", default=True, help="turns off the spinner")],
+        ["-v", "--verbose", dict(dest="verbose", action="store_true", default=False, help="outputs every request (implies --nospiner)")],
+        ["-d", "--depth", dict(dest="depth", type="int", default=-1, help="does a breadth-first crawl, stopping after DEPTH levels (implies --breadth)")],
+        ["-b", "--breadth", dict(dest="breadth", action="store_true", default=False, help="does a breadth-first crawl; may be used with --depth")],
+    ]
+    for s, l, k in options_a:
+        parser.add_option(s, l, **k)
     (options, args) = parser.parse_args()
     test(options, args)
