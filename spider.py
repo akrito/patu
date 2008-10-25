@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# TODO
+# breadth-first searching, stopping after a given level
+# ensure redirects are followed
+
 import httplib2
 import time
 import random
@@ -7,7 +11,7 @@ import sys
 from BeautifulSoup import BeautifulSoup
 from optparse import OptionParser
 from multiprocessing import Process, Queue, current_process
-from urlparse import urlsplit, urljoin
+from urlparse import urlsplit, urljoin, urlunsplit
 
 
 class Spinner:
@@ -42,11 +46,13 @@ def get_url(h, url, constraint):
         soup = BeautifulSoup(content)
         hrefs = [a['href'] for a in soup.findAll('a') if a.has_key('href')]
         for href in hrefs:
-            parts = urlsplit(href.strip())
+            absolute_url = urljoin(url, href.strip())
+            parts = urlsplit(absolute_url)
             if parts.netloc in [constraint, ""] and parts.scheme in ["http", ""]:
-                harvested_link = urljoin(url, href)
-                links.append(harvested_link)
-    except:
+                # Ignore the #foo at the end of the url
+                no_fragment = parts[:4] + ("",)
+                links.append(urlunsplit(no_fragment))
+    except None:
         links = []
         resp = None
     return (current_process().name, resp, url, links)
