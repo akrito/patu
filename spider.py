@@ -85,7 +85,11 @@ def test(options, args):
         while len(queued_urls) > 0:
             name, resp, url, links = done_queue.get()
             if resp and resp.status == 200:
-                spinner.spin()
+                if options.verbose:
+                    print "[%s] %s (from %s)" % (resp.status, url, queued_urls[url])
+                    sys.stdout.flush()
+                elif options.spinner:
+                    spinner.spin()
             elif resp:
                 print "[%s] %s (from %s)" % (resp.status, url, queued_urls[url])
                 sys.stdout.flush()
