@@ -43,8 +43,8 @@ def get_url(h, url, constraint):
     links = []
     try:
         resp, content = h.request(url)
-    except:
-        return (current_process().name, None, url, links)
+    except Exception, e:
+        return (current_process().name, e[0], url, links)
     soup = BeautifulSoup(content)
     hrefs = [a['href'] for a in soup.findAll('a') if a.has_key('href')]
     for href in hrefs:
@@ -54,7 +54,7 @@ def get_url(h, url, constraint):
             # Ignore the #foo at the end of the url
             no_fragment = parts[:4] + ("",)
             links.append(urlunsplit(no_fragment))
-    return (current_process().name, resp, url, links)
+    return (current_process().name, resp.status, url, links)
 
 def test(options, args):
    
@@ -88,18 +88,15 @@ def test(options, args):
             processes.append(p)
             
         while len(queued_urls) > 0:
-            name, resp, url, links = done_queue.get()
-            if resp and resp.status == 200:
+            name, resp_status, url, links = done_queue.get()
+            if resp_status == 200:
                 if options.verbose:
-                    print "[%s] %s (from %s)" % (resp.status, url, queued_urls[url])
+                    print "[%s] %s (from %s)" % (resp_status, url, queued_urls[url])
                     sys.stdout.flush()
                 elif options.spinner:
                     spinner.spin()
-            elif resp:
-                print "[%s] %s (from %s)" % (resp.status, url, queued_urls[url])
-                sys.stdout.flush()
             else:
-                print "[ERROR] %s (from %s)" % (url, queued_urls[url])
+                print "[%s] %s (from %s)" % (resp_status, url, queued_urls[url])
                 sys.stdout.flush()
             del(queued_urls[url])
             seen_urls[url] = True
