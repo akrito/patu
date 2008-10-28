@@ -108,13 +108,13 @@ def test(options, args):
                     # remember what url referenced this link
                     queued_urls[link] = url
                     task_queue.put(link)
-        
-        for i in range(options.spiders):
-            task_queue.put('STOP')
     except KeyboardInterrupt:
         pass
     finally:
+        for i in range(options.spiders):
+            task_queue.put('STOP')
         for p in processes:
+            p.terminate()
             p.join()
     print
 
