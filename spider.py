@@ -40,21 +40,20 @@ def get_url(h, url, constraint):
     """
     Function used to calculate result
     """
+    links = []
     try:
-        links = []
         resp, content = h.request(url)
-        soup = BeautifulSoup(content)
-        hrefs = [a['href'] for a in soup.findAll('a') if a.has_key('href')]
-        for href in hrefs:
-            absolute_url = urljoin(url, href.strip())
-            parts = urlsplit(absolute_url)
-            if parts.netloc in [constraint, ""] and parts.scheme in ["http", ""]:
-                # Ignore the #foo at the end of the url
-                no_fragment = parts[:4] + ("",)
-                links.append(urlunsplit(no_fragment))
-    except None:
-        links = []
-        resp = None
+    except:
+        return (current_process().name, None, url, links)
+    soup = BeautifulSoup(content)
+    hrefs = [a['href'] for a in soup.findAll('a') if a.has_key('href')]
+    for href in hrefs:
+        absolute_url = urljoin(url, href.strip())
+        parts = urlsplit(absolute_url)
+        if parts.netloc in [constraint, ""] and parts.scheme in ["http", ""]:
+            # Ignore the #foo at the end of the url
+            no_fragment = parts[:4] + ("",)
+            links.append(urlunsplit(no_fragment))
     return (current_process().name, resp, url, links)
 
 def test(options, args):
