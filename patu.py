@@ -108,9 +108,11 @@ def test(options, args):
     except KeyboardInterrupt:
         pass
     finally:
+        # Give the spiders a chance to exit cleanly
         for i in range(options.spiders):
             task_queue.put('STOP')
         for p in processes:
+            # Forcefully close the spiders
             p.terminate()
             p.join()
     print
