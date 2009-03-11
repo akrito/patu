@@ -43,9 +43,9 @@ def get_url(h, url, constraint):
     links = []
     try:
         resp, content = h.request(url)
+        soup = BeautifulSoup(content)
     except Exception, e:
-        return (current_process().name, e[0], url, links)
-    soup = BeautifulSoup(content)
+        return (current_process().name, '', url, links)
     hrefs = [a['href'] for a in soup.findAll('a') if a.has_key('href')]
     for href in hrefs:
         absolute_url = urljoin(url, href.strip())
@@ -130,3 +130,4 @@ if __name__ == '__main__':
         parser.add_option(s, l, **k)
     (options, args) = parser.parse_args()
     test(options, args)
+
