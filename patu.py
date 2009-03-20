@@ -5,8 +5,6 @@
 # ensure redirects are followed
 
 import httplib2
-import time
-import random
 import sys
 from BeautifulSoup import BeautifulSoup
 from optparse import OptionParser
