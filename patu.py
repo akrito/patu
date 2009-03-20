@@ -57,7 +57,10 @@ def get_url(h, url, constraint):
 def test(options, args):
    
     seen_urls = {}
+    # The ones we're currently scanning
     queued_urls = {}
+    # For the next level
+    next_urls = {}
     processes = []
     spinner = Spinner()
     
@@ -74,8 +77,7 @@ def test(options, args):
     if not url.startswith('http://'):
         url = "http://" + url
     host = urlsplit(url).netloc
-    task_queue.put(url)
-    queued_urls[url] = True
+    next_urls[url] = True
     
     try:
     
@@ -84,25 +86,31 @@ def test(options, args):
             p = Process(target=worker, args=(task_queue, done_queue, host))
             p.start()
             processes.append(p)
-            
-        while len(queued_urls) > 0:
-            name, resp_status, url, links = done_queue.get()
-            if resp_status == 200:
-                if options.verbose:
+
+        while len(next_urls) > 0:
+            for k, v in next_urls.iteritems():
+                queued_urls[k] = v
+                task_queue.put(k)
+            next_urls = {}
+
+            while len(queued_urls) > 0:
+                name, resp_status, url, links = done_queue.get()
+                if resp_status == 200:
+                    if options.verbose:
+                        print "[%s] %s (from %s)" % (resp_status, url, queued_urls[url])
+                        sys.stdout.flush()
+                    elif options.spinner:
+                        spinner.spin()
+                else:
                     print "[%s] %s (from %s)" % (resp_status, url, queued_urls[url])
                     sys.stdout.flush()
-                elif options.spinner:
-                    spinner.spin()
-            else:
-                print "[%s] %s (from %s)" % (resp_status, url, queued_urls[url])
-                sys.stdout.flush()
-            del(queued_urls[url])
-            seen_urls[url] = True
-            for link in links:
-                if not seen_urls.has_key(link) and not queued_urls.has_key(link):
-                    # remember what url referenced this link
-                    queued_urls[link] = url
-                    task_queue.put(link)
+                del(queued_urls[url])
+                seen_urls[url] = True
+                for link in links:
+                    if not seen_urls.has_key(link) and not queued_urls.has_key(link):
+                        # remember what url referenced this link
+                        next_urls[link] = url
+
     except KeyboardInterrupt:
         pass
     finally:
