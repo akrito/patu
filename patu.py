@@ -61,6 +61,7 @@ def test(options, args):
     queued_urls = {}
     # For the next level
     next_urls = {}
+    depth = 0
     processes = []
     spinner = Spinner()
     
@@ -87,7 +88,10 @@ def test(options, args):
             p.start()
             processes.append(p)
 
-        while len(next_urls) > 0:
+        while len(next_urls) > 0 and (depth <= options.depth or options.depth == -1):
+            if options.verbose:
+                print "Starting link depth %s" % depth
+                sys.stdout.flush()
             for k, v in next_urls.iteritems():
                 queued_urls[k] = v
                 task_queue.put(k)
@@ -110,6 +114,7 @@ def test(options, args):
                     if not seen_urls.has_key(link) and not queued_urls.has_key(link):
                         # remember what url referenced this link
                         next_urls[link] = url
+            depth += 1
 
     except KeyboardInterrupt:
         pass
