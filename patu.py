@@ -16,7 +16,7 @@ class Spinner:
     def __init__(self):
         self.status = 0
         self.locations = ['|', '/', '-', '\\']
-        
+
     def spin(self):
         sys.stderr.write("%s\r" % self.locations[self.status])
         sys.stderr.flush()
@@ -55,7 +55,7 @@ def get_url(h, url, constraint):
     return (current_process().name, resp.status, url, links)
 
 def test(options, args):
-   
+
     seen_urls = {}
     # The ones we're currently scanning
     queued_urls = {}
@@ -64,7 +64,7 @@ def test(options, args):
     depth = 0
     processes = []
     spinner = Spinner()
-    
+
     # Create queues
     task_queue = Queue()
     done_queue = Queue()
@@ -79,9 +79,9 @@ def test(options, args):
         url = "http://" + url
     host = urlsplit(url).netloc
     next_urls[url] = True
-    
+
     try:
-    
+
         # Start worker processes
         for i in range(options.spiders):
             p = Process(target=worker, args=(task_queue, done_queue, host))
@@ -141,4 +141,3 @@ if __name__ == '__main__':
         parser.add_option(s, l, **k)
     (options, args) = parser.parse_args()
     test(options, args)
-
