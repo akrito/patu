@@ -111,7 +111,7 @@ def test(options, args):
                 del(queued_urls[url])
                 seen_urls[url] = True
                 for link in links:
-                    if not seen_urls.has_key(link) and not queued_urls.has_key(link):
+                    if link not in seen_urls and link not in queued_urls:
                         # remember what url referenced this link
                         next_urls[link] = url
             depth += 1
