@@ -46,7 +46,7 @@ def get_url(h, url, constraint):
         return (current_process().name, '', url, links)
     hrefs = [a['href'] for a in soup.findAll('a') if a.has_key('href')]
     for href in hrefs:
-        absolute_url = urljoin(resp['content-location'], href.strip())
+        absolute_url = urljoin(resp.get('location', url), href.strip())
         parts = urlsplit(absolute_url)
         if parts.netloc in [constraint, ""] and parts.scheme in ["http", ""]:
             # Ignore the #foo at the end of the url
