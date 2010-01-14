@@ -6,7 +6,7 @@
 
 import httplib2
 import sys
-from BeautifulSoup import BeautifulSoup
+from pyquery import PyQuery
 from optparse import OptionParser
 from multiprocessing import Process, Queue, current_process
 from urlparse import urlsplit, urljoin, urlunsplit
@@ -41,10 +41,10 @@ def get_url(h, url, constraint):
     links = []
     try:
         resp, content = h.request(url)
-        soup = BeautifulSoup(content)
+        html = PyQuery(content)
     except Exception, e:
         return (current_process().name, '', url, links)
-    hrefs = [a['href'] for a in soup.findAll('a') if a.has_key('href')]
+    hrefs = [a.attrib['href'] for a in html("a") if a.attrib.has_key('href')]
     for href in hrefs:
         absolute_url = urljoin(resp['content-location'], href.strip())
         parts = urlsplit(absolute_url)
