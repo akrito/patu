@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 
-# TODO
-# breadth-first searching, stopping after a given level
-# ensure redirects are followed
-
 import httplib2
 import sys
 from pyquery import PyQuery
 from optparse import OptionParser
-from multiprocessing import Process, Queue, current_process
+from multiprocessing import Process, Queue
 from urlparse import urlsplit, urljoin, urlunsplit
 from collections import defaultdict
 
@@ -89,7 +85,7 @@ class Patu(object):
                 return Response(url, resp.status)
             else:
                 html = PyQuery(content)
-        except Exception, e:
+        except Exception:
             return Response(url)
 
         # Add relevant links
@@ -166,7 +162,6 @@ if __name__ == '__main__':
         ["-S", "--nospinner", dict(dest="spinner", action="store_false", default=True, help="turns off the spinner")],
         ["-v", "--verbose", dict(dest="verbose", action="store_true", default=False, help="outputs every request (implies --nospiner)")],
         ["-d", "--depth", dict(dest="depth", type="int", default=-1, help="does a breadth-first crawl, stopping after DEPTH levels (implies --breadth)")],
-        ["-b", "--breadth", dict(dest="breadth", action="store_true", default=False, help="does a breadth-first crawl; may be used with --depth")],
     ]
     for s, l, k in options_a:
         parser.add_option(s, l, **k)
@@ -183,7 +178,6 @@ if __name__ == '__main__':
         'spinner': options.spinner,
         'verbose': options.verbose,
         'depth': options.depth,
-        'breadth': options.breadth,
     }
     spider = Patu(**kwargs)
     spider.crawl()
