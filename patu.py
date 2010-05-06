@@ -6,13 +6,14 @@
 
 import httplib2
 import sys
-from BeautifulSoup import BeautifulSoup
+from pyquery import PyQuery
 from optparse import OptionParser
 from multiprocessing import Process, Queue, current_process
 from urlparse import urlsplit, urljoin, urlunsplit
+from collections import defaultdict
 
 
-class Spinner:
+class Spinner(object):
     def __init__(self):
         self.status = 0
         self.locations = ['|', '/', '-', '\\']
@@ -22,111 +23,141 @@ class Spinner:
         sys.stderr.flush()
         self.status = (self.status + 1) % 4
 
-def worker(input, output, constraint):
-    """
-    Function run by worker processes
-    """
-    try:
-        h = httplib2.Http(timeout = 60)
-        for url in iter(input.get, 'STOP'):
-            result = get_url(h, url, constraint)
-            output.put(result)
-    except KeyboardInterrupt:
-        pass
+class Response(object):
+    def __init__(self, url="", status_code=-1, content=None, links=[]):
+        self.url = url
+        self.status_code = status_code
+        self.content = content
+        self.links = links
 
-def get_url(h, url, constraint):
-    """
-    Function used to calculate result
-    """
-    links = []
-    try:
-        resp, content = h.request(url)
-        soup = BeautifulSoup(content)
-    except Exception, e:
-        return (current_process().name, '', url, links)
-    hrefs = [a['href'] for a in soup.findAll('a') if a.has_key('href')]
-    for href in hrefs:
-        absolute_url = urljoin(resp.get('location', url), href.strip())
-        parts = urlsplit(absolute_url)
-        if parts.netloc in [constraint, ""] and parts.scheme in ["http", ""]:
-            # Ignore the #foo at the end of the url
-            no_fragment = parts[:4] + ("",)
-            links.append(urlunsplit(no_fragment))
-    return (current_process().name, resp.status, url, links)
+class RedirectError(Exception):
+    def __init__(self, location):
+        self.location = location
 
-def test(options, args):
-
-    seen_urls = {}
-    # The ones we're currently scanning
-    queued_urls = {}
-    # For the next level
-    next_urls = {}
-    depth = 0
+class Patu(object):
     processes = []
-    spinner = Spinner()
-
     # Create queues
     task_queue = Queue()
     done_queue = Queue()
+    next_urls = {}
+    queued_urls = {}
+    seen_urls = set()
+    report = defaultdict(list)
+    spinner = Spinner()
 
-    # Submit first url
-    try:
-        url = unicode(args[0])
-    except IndexError:
-        print "Give the spiders a URL."
-        sys.exit(1)
-    if not url.startswith('http://'):
-        url = "http://" + url
-    host = urlsplit(url).netloc
-    next_urls[url] = True
+    def __init__(self, urls, spiders=1, spinner=True, verbose=False, depth=-1, breadth=False):
+        self.urls = []
+        for url in urls:
+            if not url.startswith("http://"):
+                url = "http://" + url
+            self.urls.append(url)
+            self.next_urls[url] = None
+        self.constraints = [''] + [urlsplit(url).netloc for url in self.urls]
+        self.spiders = spiders
+        self.show_spinner = spinner
+        self.verbose = verbose
+        self.depth = depth
+        self.breadth = breadth
 
-    try:
+    def worker(self):
+        """
+        Function run by worker processes
+        """
+        try:
+            h = httplib2.Http(timeout = 60)
+            while True:
+                for url in iter(self.task_queue.get, 'STOP'):
+                    try:
+                        result = self.get_urls(h, url)
+                    except RedirectError, e:
+                        self.task_queue.put(e.location)
+                    else:
+                        self.done_queue.put(result)
+        except KeyboardInterrupt:
+            pass
 
-        # Start worker processes
-        for i in range(options.spiders):
-            p = Process(target=worker, args=(task_queue, done_queue, host))
-            p.start()
-            processes.append(p)
+    def get_urls(self, h, url):
+        """
+        Function used to calculate result
+        """
+        links = []
+        try:
+            resp, content = h.request(url)
+            if 300 <= resp.status < 400:
+                raise RedirectError(resp.location)
+            elif resp.status != 200:
+                return Response(url, resp.status)
+            else:
+                html = PyQuery(content)
+        except Exception, e:
+            return Response(url)
 
-        while len(next_urls) > 0 and (depth <= options.depth or options.depth == -1):
-            if options.verbose:
-                print "Starting link depth %s" % depth
+        # Add relevant links
+        hrefs = [a.attrib['href'] for a in html("a") if a.attrib.has_key('href')]
+        for href in hrefs:
+            absolute_url = urljoin(resp['content-location'], href.strip())
+            parts = urlsplit(absolute_url)
+            if parts.netloc in self.constraints and parts.scheme in ["http", ""]:
+                # Ignore the #foo at the end of the url
+                no_fragment = parts[:4] + ("",)
+                links.append(urlunsplit(no_fragment))
+        return Response(url, resp.status, content, links)
+
+    def process_next_url(self):
+        response = self.done_queue.get()
+        self.report[response.status_code].append("%s (from %s)" % (response.url, self.queued_urls[response.url]))
+        result = "[%s] %s (from %s)" % (response.status_code, response.url, self.queued_urls[response.url])
+        if response.status_code == 200:
+            if self.verbose:
+                print result
                 sys.stdout.flush()
-            for k, v in next_urls.iteritems():
-                queued_urls[k] = v
-                task_queue.put(k)
-            next_urls = {}
+            elif self.show_spinner:
+                self.spinner.spin()
+        else:
+            print result
+            sys.stdout.flush()
+        self.seen_urls.add(response.url)
+        del(self.queued_urls[response.url])
+        for link in response.links:
+            if link not in self.seen_urls and link not in self.queued_urls:
+                # remember what url referenced this link
+                self.next_urls[link] = response.url
 
-            while len(queued_urls) > 0:
-                name, resp_status, url, links = done_queue.get()
-                if resp_status == 200:
-                    if options.verbose:
-                        print "[%s] %s (from %s)" % (resp_status, url, queued_urls[url])
-                        sys.stdout.flush()
-                    elif options.spinner:
-                        spinner.spin()
-                else:
-                    print "[%s] %s (from %s)" % (resp_status, url, queued_urls[url])
+    def crawl(self):
+        # For the next level
+        current_depth = 0
+        try:
+            # Start worker processes
+            for i in range(self.spiders):
+                p = Process(target=self.worker)
+                p.start()
+                self.processes.append(p)
+
+            while len(self.next_urls) > 0 and (current_depth <= self.depth or self.depth == -1):
+                if self.verbose:
+                    print "Starting link depth %s" % current_depth
                     sys.stdout.flush()
-                del(queued_urls[url])
-                seen_urls[url] = True
-                for link in links:
-                    if link not in seen_urls and link not in queued_urls:
-                        # remember what url referenced this link
-                        next_urls[link] = url
-            depth += 1
 
-    except KeyboardInterrupt:
-        pass
-    finally:
-        # Give the spiders a chance to exit cleanly
-        for i in range(options.spiders):
-            task_queue.put('STOP')
-        for p in processes:
-            # Forcefully close the spiders
-            p.terminate()
-            p.join()
-    print
+                # place next urls into the task queue
+                for url, referer in self.next_urls.iteritems():
+                    self.queued_urls[url] = referer
+                    self.task_queue.put(url)
+                self.next_urls = {}
+
+                while len(self.queued_urls) > 0:
+                    self.process_next_url()
+                current_depth += 1
+
+        except KeyboardInterrupt:
+            pass
+        finally:
+            # Give the spiders a chance to exit cleanly
+            for i in range(self.spiders):
+                self.task_queue.put('STOP')
+            for p in self.processes:
+                # Forcefully close the spiders
+                p.terminate()
+                p.join()
 
 if __name__ == '__main__':
     parser = OptionParser()
@@ -140,4 +171,21 @@ if __name__ == '__main__':
     for s, l, k in options_a:
         parser.add_option(s, l, **k)
     (options, args) = parser.parse_args()
-    test(options, args)
+     # Submit first url
+    try:
+        urls = [unicode(url) for url in args]
+    except IndexError:
+        print "Give the spiders a URL."
+        sys.exit(1)
+    kwargs = {
+        'urls': urls,
+        'spiders': options.spiders,
+        'spinner': options.spinner,
+        'verbose': options.verbose,
+        'depth': options.depth,
+        'breadth': options.breadth,
+    }
+    spider = Patu(**kwargs)
+    spider.crawl()
+    print
+
