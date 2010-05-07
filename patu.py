@@ -6,7 +6,6 @@ from pyquery import PyQuery
 from optparse import OptionParser
 from multiprocessing import Process, Queue
 from urlparse import urlsplit, urljoin, urlunsplit
-from collections import defaultdict
 
 
 class Spinner(object):
@@ -38,7 +37,6 @@ class Patu(object):
     next_urls = {}
     queued_urls = {}
     seen_urls = set()
-    report = defaultdict(list)
     spinner = Spinner()
 
     def __init__(self, urls, spiders=1, spinner=True, verbose=False, depth=-1, breadth=False):
@@ -101,7 +99,6 @@ class Patu(object):
 
     def process_next_url(self):
         response = self.done_queue.get()
-        self.report[response.status_code].append("%s (from %s)" % (response.url, self.queued_urls[response.url]))
         result = "[%s] %s (from %s)" % (response.status_code, response.url, self.queued_urls[response.url])
         if response.status_code == 200:
             if self.verbose:
