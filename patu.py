@@ -2,7 +2,7 @@
 
 import httplib2
 import sys
-from pyquery import PyQuery
+from lxml.html import fromstring
 from optparse import OptionParser
 from multiprocessing import Process, Queue
 from urlparse import urlsplit, urljoin, urlunsplit
@@ -102,14 +102,19 @@ class Patu(object):
             elif resp.status != 200:
                 return Response(url, resp.status)
             else:
-                html = PyQuery(content)
+                html = fromstring(content)
         except Exception:
             return Response(url)
 
-
         # Add relevant links
-        hrefs = [a.attrib['href'] for a in html("a") if a.attrib.has_key('href')]
-        for href in hrefs:
+        for link in html.cssselect('a'):
+            if not link.attrib.has_key('href'):
+                # Skip links w/o an href attrib
+                continue
+            if link.attrib.get('rel', None) == 'nofollow':
+                # Skip links w/ rel="nofollow" (offsite)
+                continue
+            href = link.attrib['href']
             absolute_url = urljoin(resp['content-location'], href.strip())
             parts = urlsplit(absolute_url)
             if parts.netloc in self.constraints and parts.scheme in ['http', '']:
