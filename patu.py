@@ -39,19 +39,36 @@ class Patu(object):
     seen_urls = set()
     spinner = Spinner()
 
-    def __init__(self, urls, spiders=1, spinner=True, verbose=False, depth=-1, breadth=False):
-        self.urls = []
-        for url in urls:
-            if not url.startswith("http://"):
-                url = "http://" + url
-            self.urls.append(url)
-            self.next_urls[url] = None
-        self.constraints = [''] + [urlsplit(url).netloc for url in self.urls]
+    def __init__(self, urls, spiders=1, spinner=True, verbose=False, depth=-1, breadth=False, input_file=None, generate=False):
+        if input_file:
+            if input_file == '-':
+                f = sys.stdin
+            else:
+                f = open(input_file)
+            for line in f:
+                bits = line.strip().split("\t")
+                if bits == ['']:
+                    continue
+                elif len(bits) == 1:
+                    self.next_urls[bits[0]] = None
+                else:
+                    self.next_urls[bits[0]] = bits[1]
+            f.close()
+        else:
+            self.urls = []
+            for url in urls:
+                if not url.startswith("http://"):
+                    url = "http://" + url
+                self.urls.append(url)
+                self.next_urls[url] = None
+            self.constraints = [''] + [urlsplit(url).netloc for url in self.urls]
         self.spiders = spiders
         self.show_spinner = spinner
         self.verbose = verbose
         self.depth = depth
         self.breadth = breadth
+        self.input_file = input_file
+        self.generate = generate
 
     def worker(self):
         """
@@ -79,6 +96,9 @@ class Patu(object):
             resp, content = h.request(url)
             if 300 <= resp.status < 400:
                 raise RedirectError(resp.location)
+            elif self.input_file:
+                # Short-circuit if we got our list of links from a file
+                return Response(url, resp.status)
             elif resp.status != 200:
                 return Response(url, resp.status)
             else:
@@ -86,24 +106,28 @@ class Patu(object):
         except Exception:
             return Response(url)
 
+
         # Add relevant links
         hrefs = [a.attrib['href'] for a in html("a") if a.attrib.has_key('href')]
         for href in hrefs:
             absolute_url = urljoin(resp['content-location'], href.strip())
             parts = urlsplit(absolute_url)
-            if parts.netloc in self.constraints and parts.scheme in ["http", ""]:
+            if parts.netloc in self.constraints and parts.scheme in ['http', '']:
                 # Ignore the #foo at the end of the url
-                no_fragment = parts[:4] + ("",)
+                no_fragment = parts[:4] + ('',)
                 links.append(urlunsplit(no_fragment))
         return Response(url, resp.status, content, links)
 
     def process_next_url(self):
         response = self.done_queue.get()
-        result = "[%s] %s (from %s)" % (response.status_code, response.url, self.queued_urls[response.url])
+        referer = self.queued_urls[response.url]
+        result = '[%s] %s (from %s)' % (response.status_code, response.url, referer)
         if response.status_code == 200:
             if self.verbose:
                 print result
                 sys.stdout.flush()
+            elif self.generate:
+                print "%s\t%s" % (response.url, referer)
             elif self.show_spinner:
                 self.spinner.spin()
         else:
@@ -159,6 +183,8 @@ if __name__ == '__main__':
         ["-S", "--nospinner", dict(dest="spinner", action="store_false", default=True, help="turns off the spinner")],
         ["-v", "--verbose", dict(dest="verbose", action="store_true", default=False, help="outputs every request (implies --nospiner)")],
         ["-d", "--depth", dict(dest="depth", type="int", default=-1, help="does a breadth-first crawl, stopping after DEPTH levels (implies --breadth)")],
+        ['-g', '--generate', dict(dest='generate', action='store_true', default=False, help='generate a list of crawled URLs on stdout')],
+        ['-i', '--input', dict(dest='input_file', type='str', default='', help='file of URLs to crawl')],
     ]
     for s, l, k in options_a:
         parser.add_option(s, l, **k)
@@ -175,6 +201,8 @@ if __name__ == '__main__':
         'spinner': options.spinner,
         'verbose': options.verbose,
         'depth': options.depth,
+        'generate': options.generate,
+        'input_file': options.input_file
     }
     spider = Patu(**kwargs)
     spider.crawl()
