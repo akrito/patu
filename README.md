@@ -1,7 +1,9 @@
 Patu
 ====
 
-A small spider, useful for checking a site for 404s and 500s.
+A small spider, useful for checking a site for 404s and 500s. Patu requires httplib2 and lxml:
+
+    pip install -U httplib2 lxml
 
 Quick Usage
 ===========
