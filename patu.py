@@ -31,7 +31,7 @@ class RedirectError(Exception):
 
 class Patu(object):
 
-    def __init__(self, urls=[], spiders=1, spinner=True, verbose=False, depth=-1, input_file=None, generate=False, stdin=sys.stdin, stdout=sys.stdout):
+    def __init__(self, urls=[], spiders=1, spinner=True, verbose=False, depth=-1, input_file=None, generate=False):
         # Set up the multiprocessing bits
         self.processes = []
         self.task_queue = Queue()
@@ -41,14 +41,10 @@ class Patu(object):
         self.seen_urls = set()
         self.spinner = Spinner()
 
-        # Set up the bits I need to stub for testing
-        self.stdout = stdout
-        self.stdin = stdin
-
         # Generate the initial URLs, either from command-line, stdin, or file
         if input_file:
             if input_file == '-':
-                f = self.stdin
+                f = sys.stdin
             else:
                 f = open(input_file)
             for line in f:
@@ -134,7 +130,7 @@ class Patu(object):
                 print result
                 sys.stdout.flush()
             elif self.generate:
-                self.stdout.write("%s\t%s\n" % (response.url, referer))
+                print "%s\t%s" % (response.url, referer)
             elif self.show_spinner:
                 self.spinner.spin()
         else:

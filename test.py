@@ -1,6 +1,7 @@
 import httplib2
 from os import remove
 from patu import Patu, Spinner
+import sys
 
 TEST_URL = 'http://www.djangoproject.com'
 SEEN_URLS = set(['http://www.djangoproject.com',
@@ -58,18 +59,26 @@ def test_spinner():
 def test_crawl():
     h = httplib2.Http
     httplib2.Http = MockHttp
+
     p = Patu(urls=[TEST_URL], depth=1)
     p.crawl()
+
     httplib2.Http = h
     assert p.seen_urls == SEEN_URLS
 
 def test_generate():
-    h = httplib2.Http
-    httplib2.Http = MockHttp
+
     with open('test_data/test_generated.txt', 'w') as f:
-        p = Patu(urls=[TEST_URL], depth=1, generate=True, stdout=f)
+        h = httplib2.Http
+        httplib2.Http = MockHttp
+        s = sys.stdout
+        sys.stdout = f
+
+        p = Patu(urls=[TEST_URL], depth=1, generate=True)
         p.crawl()
-    httplib2.Http = h
+
+        sys.stdout = s
+        httplib2.Http = h
     with open('test_data/test_generated.txt', 'r') as f:
         generated_urls = f.read().strip()
     remove('test_data/test_generated.txt')
@@ -92,23 +101,32 @@ def test_stdin():
     with open('test_data/test_input.txt') as f:
         h = httplib2.Http
         httplib2.Http = MockHttp
-        p = Patu(depth=1, input_file='-', stdin=f, verbose=True)
+        s = sys.stdin
+        sys.stdin = f
+
+        p = Patu(depth=1, input_file='-', verbose=True)
         p.crawl()
+
+        sys.stdin = s
         httplib2.Http = h
     assert p.seen_urls == SEEN_URLS
 
 def test_file_input():
     h = httplib2.Http
     httplib2.Http = MockHttp
+
     p = Patu(depth=1, input_file='test_data/test_input.txt')
     p.crawl()
+
     httplib2.Http = h
     assert p.seen_urls == SEEN_URLS
 
 def test_no_http():
     h = httplib2.Http
     httplib2.Http = MockHttp
+
     p = Patu(urls=['www.djangoproject.com'], depth=1)
     p.crawl()
+
     httplib2.Http = h
     assert p.seen_urls == SEEN_URLS
