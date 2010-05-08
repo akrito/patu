@@ -31,7 +31,7 @@ class RedirectError(Exception):
 
 class Patu(object):
 
-    def __init__(self, urls=[], spiders=1, spinner=True, verbose=False, depth=-1, input_file=None, generate=False, httplib=httplib2, stdin=sys.stdin, stdout=sys.stdout):
+    def __init__(self, urls=[], spiders=1, spinner=True, verbose=False, depth=-1, input_file=None, generate=False, stdin=sys.stdin, stdout=sys.stdout):
         # Set up the multiprocessing bits
         self.processes = []
         self.task_queue = Queue()
@@ -44,7 +44,6 @@ class Patu(object):
         # Set up the bits I need to stub for testing
         self.stdout = stdout
         self.stdin = stdin
-        self.httplib = httplib
 
         # Generate the initial URLs, either from command-line, stdin, or file
         if input_file:
@@ -81,7 +80,7 @@ class Patu(object):
         Function run by worker processes
         """
         try:
-            h = self.httplib.Http(timeout = 60)
+            h = httplib2.Http(timeout = 60)
             while True:
                 for url in iter(self.task_queue.get, 'STOP'):
                     try:

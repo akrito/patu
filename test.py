@@ -1,3 +1,4 @@
+import httplib2
 from os import remove
 from patu import Patu, Spinner
 
@@ -19,23 +20,19 @@ class MockHttpResponse(dict):
         self.location = location
         self['content-location'] = url
 
-class MockHttplib2(object):
-    class Http(object):
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def request(self, url):
-            if url == TEST_URL:
-                resp = MockHttpResponse(url)
-                content = open('test_data/test.html').read()
-            else:
-                resp = MockHttpResponse(url)
-                content = open('test_data/test.html').read()
-            return resp, content
+class MockHttp(httplib2.Http):
+    def request(self, url):
+        if url == TEST_URL:
+            resp = MockHttpResponse(url)
+            content = open('test_data/test.html').read()
+        else:
+            resp = MockHttpResponse(url)
+            content = open('test_data/test.html').read()
+        return resp, content
 
 def test_parse_html():
     p = Patu(urls=[TEST_URL])
-    r = p.get_urls(MockHttplib2.Http(), TEST_URL)
+    r = p.get_urls(MockHttp(), TEST_URL)
     assert r.links == ['http://www.djangoproject.com/',
                        'http://www.djangoproject.com/',
                        'http://www.djangoproject.com/download/',
@@ -59,14 +56,20 @@ def test_spinner():
     assert s.status == 2
 
 def test_crawl():
-    p = Patu(urls=[TEST_URL], httplib=MockHttplib2, depth=1)
+    h = httplib2.Http
+    httplib2.Http = MockHttp
+    p = Patu(urls=[TEST_URL], depth=1)
     p.crawl()
+    httplib2.Http = h
     assert p.seen_urls == SEEN_URLS
 
 def test_generate():
+    h = httplib2.Http
+    httplib2.Http = MockHttp
     with open('test_data/test_generated.txt', 'w') as f:
-        p = Patu(urls=[TEST_URL], httplib=MockHttplib2, depth=1, generate=True, stdout=f)
+        p = Patu(urls=[TEST_URL], depth=1, generate=True, stdout=f)
         p.crawl()
+    httplib2.Http = h
     with open('test_data/test_generated.txt', 'r') as f:
         generated_urls = f.read().strip()
     remove('test_data/test_generated.txt')
@@ -87,16 +90,25 @@ http://www.djangoproject.com/download/	http://www.djangoproject.com
 
 def test_stdin():
     with open('test_data/test_input.txt') as f:
-        p = Patu(httplib=MockHttplib2, depth=1, input_file='-', stdin=f, verbose=True)
+        h = httplib2.Http
+        httplib2.Http = MockHttp
+        p = Patu(depth=1, input_file='-', stdin=f, verbose=True)
         p.crawl()
+        httplib2.Http = h
     assert p.seen_urls == SEEN_URLS
 
 def test_file_input():
-    p = Patu(httplib=MockHttplib2, depth=1, input_file='test_data/test_input.txt')
+    h = httplib2.Http
+    httplib2.Http = MockHttp
+    p = Patu(depth=1, input_file='test_data/test_input.txt')
     p.crawl()
+    httplib2.Http = h
     assert p.seen_urls == SEEN_URLS
 
 def test_no_http():
-    p = Patu(urls=['www.djangoproject.com'], httplib=MockHttplib2, depth=1)
+    h = httplib2.Http
+    httplib2.Http = MockHttp
+    p = Patu(urls=['www.djangoproject.com'], depth=1)
     p.crawl()
+    httplib2.Http = h
     assert p.seen_urls == SEEN_URLS
