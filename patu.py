@@ -111,9 +111,6 @@ class Patu(object):
             if not link.attrib.has_key('href'):
                 # Skip links w/o an href attrib
                 continue
-            if link.attrib.get('rel', None) == 'nofollow':
-                # Skip links w/ rel="nofollow" (offsite)
-                continue
             href = link.attrib['href']
             absolute_url = urljoin(resp['content-location'], href.strip())
             parts = urlsplit(absolute_url)
