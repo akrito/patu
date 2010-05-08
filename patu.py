@@ -30,19 +30,26 @@ class RedirectError(Exception):
         self.location = location
 
 class Patu(object):
-    processes = []
-    # Create queues
-    task_queue = Queue()
-    done_queue = Queue()
-    next_urls = {}
-    queued_urls = {}
-    seen_urls = set()
-    spinner = Spinner()
 
-    def __init__(self, urls, spiders=1, spinner=True, verbose=False, depth=-1, breadth=False, input_file=None, generate=False):
+    def __init__(self, urls=[], spiders=1, spinner=True, verbose=False, depth=-1, input_file=None, generate=False, httplib=httplib2, stdin=sys.stdin, stdout=sys.stdout):
+        # Set up the multiprocessing bits
+        self.processes = []
+        self.task_queue = Queue()
+        self.done_queue = Queue()
+        self.next_urls = {}
+        self.queued_urls = {}
+        self.seen_urls = set()
+        self.spinner = Spinner()
+
+        # Set up the bits I need to stub for testing
+        self.stdout = stdout
+        self.stdin = stdin
+        self.httplib = httplib
+
+        # Generate the initial URLs, either from command-line, stdin, or file
         if input_file:
             if input_file == '-':
-                f = sys.stdin
+                f = self.stdin
             else:
                 f = open(input_file)
             for line in f:
@@ -66,7 +73,6 @@ class Patu(object):
         self.show_spinner = spinner
         self.verbose = verbose
         self.depth = depth
-        self.breadth = breadth
         self.input_file = input_file
         self.generate = generate
 
@@ -75,7 +81,7 @@ class Patu(object):
         Function run by worker processes
         """
         try:
-            h = httplib2.Http(timeout = 60)
+            h = self.httplib.Http(timeout = 60)
             while True:
                 for url in iter(self.task_queue.get, 'STOP'):
                     try:
@@ -114,7 +120,7 @@ class Patu(object):
             href = link.attrib['href']
             absolute_url = urljoin(resp['content-location'], href.strip())
             parts = urlsplit(absolute_url)
-            if parts.netloc in self.constraints and parts.scheme in ['http', '']:
+            if parts.netloc in self.constraints and parts.scheme == 'http':
                 # Ignore the #foo at the end of the url
                 no_fragment = parts[:4] + ('',)
                 links.append(urlunsplit(no_fragment))
@@ -129,7 +135,7 @@ class Patu(object):
                 print result
                 sys.stdout.flush()
             elif self.generate:
-                print "%s\t%s" % (response.url, referer)
+                self.stdout.write("%s\t%s\n" % (response.url, referer))
             elif self.show_spinner:
                 self.spinner.spin()
         else:
@@ -184,7 +190,7 @@ if __name__ == '__main__':
         ["-s", "--spiders", dict(dest="spiders", type="int", default=1, help="sends more than one spider")],
         ["-S", "--nospinner", dict(dest="spinner", action="store_false", default=True, help="turns off the spinner")],
         ["-v", "--verbose", dict(dest="verbose", action="store_true", default=False, help="outputs every request (implies --nospiner)")],
-        ["-d", "--depth", dict(dest="depth", type="int", default=-1, help="does a breadth-first crawl, stopping after DEPTH levels (implies --breadth)")],
+        ["-d", "--depth", dict(dest="depth", type="int", default=-1, help="does a breadth-first crawl, stopping after DEPTH levels")],
         ['-g', '--generate', dict(dest='generate', action='store_true', default=False, help='generate a list of crawled URLs on stdout')],
         ['-i', '--input', dict(dest='input_file', type='str', default='', help='file of URLs to crawl')],
     ]
