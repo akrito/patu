@@ -179,7 +179,7 @@ class Patu(object):
                 p.terminate()
                 p.join()
 
-if __name__ == '__main__':
+def main():
     parser = OptionParser()
     options_a = [
         ["-s", "--spiders", dict(dest="spiders", type="int", default=1, help="sends more than one spider")],
@@ -211,3 +211,5 @@ if __name__ == '__main__':
     spider.crawl()
     print
 
+if __name__ == '__main__':
+    sys.exit(main())
