@@ -1,0 +1,5 @@
+include *.md
+include LICENSE
+include test.py
+include test_data/test.html
+include test_data/test_input.txt
