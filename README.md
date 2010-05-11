@@ -38,3 +38,12 @@ The output produced by <code>--generate</code> is formatted like so:
     LINK2<TAB>REFERER
     
 <code>--input</code> can take a file of that format, or one URL per line with no referer. <code>--input=-</code> reads from stdin.
+
+Testing
+=======
+
+Patu uses Nose for testing. To install Nose and test:
+
+    pip install -U nose
+    nosetests
+
