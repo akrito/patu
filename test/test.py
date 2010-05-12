@@ -25,20 +25,20 @@ SEEN_URLS = set(['http://www.djangoproject.com',
 TEST_HTML = path.join(path.dirname(__file__), 'test.html')
 TEST_INPUT = path.join(path.dirname(__file__), 'test_input.txt')
 LINKS = ['http://www.djangoproject.com/',
-                       'http://www.djangoproject.com/',
-                       'http://www.djangoproject.com/download/',
-                       'http://www.djangoproject.com/weblog/',
-                       'http://www.djangoproject.com/community/',
-                       'http://www.djangoproject.com/download/',
-                       'http://www.djangoproject.com/weblog/2010/may/05/12-rc-1/',
-                       'http://www.djangoproject.com/weblog/2010/may/05/12-rc-1/',
-                       'http://www.djangoproject.com/weblog/2010/apr/28/django-1_2-release-schedule-update-7/',
-                       'http://www.djangoproject.com/weblog/2010/apr/28/django-1_2-release-schedule-update-7/',
-                       'http://www.djangoproject.com/weblog/2010/apr/22/django-1_2-release-schedule-update-6/',
-                       'http://www.djangoproject.com/weblog/2010/apr/22/django-1_2-release-schedule-update-6/',
-                       'http://www.djangoproject.com/weblog/2010/apr/14/django-1_2-release-schedule-update-5/',
-                       'http://www.djangoproject.com/weblog/2010/apr/14/django-1_2-release-schedule-update-5/',
-                       'http://www.djangoproject.com/foundation/']
+         'http://www.djangoproject.com/',
+         'http://www.djangoproject.com/download/',
+         'http://www.djangoproject.com/weblog/',
+         'http://www.djangoproject.com/community/',
+         'http://www.djangoproject.com/download/',
+         'http://www.djangoproject.com/weblog/2010/may/05/12-rc-1/',
+         'http://www.djangoproject.com/weblog/2010/may/05/12-rc-1/',
+         'http://www.djangoproject.com/weblog/2010/apr/28/django-1_2-release-schedule-update-7/',
+         'http://www.djangoproject.com/weblog/2010/apr/28/django-1_2-release-schedule-update-7/',
+         'http://www.djangoproject.com/weblog/2010/apr/22/django-1_2-release-schedule-update-6/',
+         'http://www.djangoproject.com/weblog/2010/apr/22/django-1_2-release-schedule-update-6/',
+         'http://www.djangoproject.com/weblog/2010/apr/14/django-1_2-release-schedule-update-5/',
+         'http://www.djangoproject.com/weblog/2010/apr/14/django-1_2-release-schedule-update-5/',
+         'http://www.djangoproject.com/foundation/']
 
 class MockHttpResponse(dict):
     def __init__(self, url, status=200, location=None):
