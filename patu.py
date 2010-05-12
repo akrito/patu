@@ -188,11 +188,7 @@ def main():
         parser.add_option(s, l, **k)
     (options, args) = parser.parse_args()
      # Submit first url
-    try:
-        urls = [unicode(url) for url in args]
-    except IndexError:
-        print "Give the spiders a URL."
-        sys.exit(1)
+    urls = [unicode(url) for url in args]
     kwargs = {
         'urls': urls,
         'spiders': options.spiders,
