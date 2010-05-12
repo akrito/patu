@@ -1,5 +1,5 @@
 import httplib2
-from nose.tools import eq_
+from nose.tools import eq_, with_setup
 from os import path, remove
 import sys
 
@@ -9,7 +9,7 @@ except NameError:
     __file__ = 'test/test.py'
 sys.path.append(path.join(path.dirname(__file__), '..'))
 
-from patu import Patu, Spinner
+from patu import Patu, Spinner, main
 
 TEST_URL = 'http://www.djangoproject.com'
 SEEN_URLS = set(['http://www.djangoproject.com',
@@ -47,6 +47,7 @@ class MockHttpResponse(dict):
         self['content-location'] = url
 
 class MockHttp(httplib2.Http):
+    h = httplib2.Http
     def request(self, url):
         if url == 'http://redirect.me':
             resp = MockHttpResponse(url, status=301, location='http://www.djangoproject.com')
@@ -63,6 +64,12 @@ class MockHttp(httplib2.Http):
             content = open(TEST_HTML).read()
         return resp, content
 
+def mock():
+    httplib2.Http = MockHttp
+
+def unmock():
+    httplib2.Http = MockHttp.h
+    
 def test_parse_html():
     p = Patu(urls=[TEST_URL])
     r = p.get_urls(MockHttp(), TEST_URL)
@@ -74,21 +81,16 @@ def test_spinner():
         s.spin()
     eq_(s.status, 2)
 
+@with_setup(mock, unmock)
 def test_crawl():
-    h = httplib2.Http
-    httplib2.Http = MockHttp
-
     p = Patu(urls=[TEST_URL], depth=1)
     p.crawl()
-
-    httplib2.Http = h
     eq_(p.seen_urls, SEEN_URLS)
 
+@with_setup(mock, unmock)
 def test_generate():
 
     with open('.test_generated.txt', 'w') as f:
-        h = httplib2.Http
-        httplib2.Http = MockHttp
         s = sys.stdout
         sys.stdout = f
 
@@ -96,7 +98,6 @@ def test_generate():
         p.crawl()
 
         sys.stdout = s
-        httplib2.Http = h
     with open('.test_generated.txt', 'r') as f:
         generated_urls = f.read().strip()
     remove('.test_generated.txt')
@@ -115,10 +116,9 @@ http://www.djangoproject.com/download/	http://www.djangoproject.com
     correct_urls = correct_urls.strip()
     eq_(generated_urls, correct_urls)
 
+@with_setup(mock, unmock)
 def test_stdin():
     with open(TEST_INPUT) as f:
-        h = httplib2.Http
-        httplib2.Http = MockHttp
         s = sys.stdin
         sys.stdin = f
 
@@ -126,33 +126,22 @@ def test_stdin():
         p.crawl()
 
         sys.stdin = s
-        httplib2.Http = h
     eq_(p.seen_urls, SEEN_URLS)
 
+@with_setup(mock, unmock)
 def test_file_input():
-    h = httplib2.Http
-    httplib2.Http = MockHttp
-
     p = Patu(depth=1, input_file=TEST_INPUT)
     p.crawl()
-
-    httplib2.Http = h
     eq_(p.seen_urls, SEEN_URLS)
 
+@with_setup(mock, unmock)
 def test_no_http():
-    h = httplib2.Http
-    httplib2.Http = MockHttp
-
     p = Patu(urls=['www.djangoproject.com'], depth=1)
     p.crawl()
-
-    httplib2.Http = h
     eq_(p.seen_urls, SEEN_URLS)
 
+@with_setup(mock, unmock)
 def test_worker():
-    h = httplib2.Http
-    httplib2.Http = MockHttp
-
     p = Patu(urls=['www.djangoproject.com'], depth=1)
     for url, referer in p.next_urls.iteritems():
         p.task_queue.put(url)
@@ -160,11 +149,10 @@ def test_worker():
     p.worker()
     content = p.done_queue.get().content
 
-    httplib2.Http = h
-
     with open(TEST_HTML) as f:
         eq_(f.read(), content)
 
+@with_setup(mock, unmock)
 def test_worker_statuses():
     url_statuses = [
         ('redirect.me', 301),
@@ -172,9 +160,6 @@ def test_worker_statuses():
         ('io.me', -1),
         ('keyboard.me', -1)
         ]
-
-    h = httplib2.Http
-    httplib2.Http = MockHttp
 
     for address, error_code in url_statuses:
         p = Patu(urls=[address], depth=1)
@@ -186,19 +171,14 @@ def test_worker_statuses():
         eq_(u.url, 'http://' + address)
         eq_(u.status_code, error_code)
 
-    httplib2.Http = h
-
+@with_setup(mock, unmock)
 def test_worker_input_file():
-    h = httplib2.Http
-    httplib2.Http = MockHttp
-
     p = Patu(urls=['www.djangoproject.com'], depth=1, input_file=TEST_INPUT)
     for url, referer in p.next_urls.iteritems():
         p.task_queue.put(url)
     p.task_queue.put('STOP')
     p.worker()
     p.done_queue.put('STOP')
-    httplib2.Http = h
     for u in iter(p.done_queue.get, 'STOP'):
         try:
             url = u.url
@@ -206,10 +186,9 @@ def test_worker_input_file():
             url = False
         assert url in SEEN_URLS or not url
 
+@with_setup(mock, unmock)
 def test_error():
     with open('.test_generated.txt', 'w') as f:
-        h = httplib2.Http
-        httplib2.Http = MockHttp
         s = sys.stdout
         sys.stdout = f
 
@@ -217,30 +196,35 @@ def test_error():
         p.crawl()
 
         sys.stdout = s
-        httplib2.Http = h
     with open('.test_generated.txt', 'r') as f:
         eq_(f.read().strip(), '[500] http://error.me (from None)')
 
+@with_setup(mock, unmock)
 def test_main_process_keyboard():
-    h = httplib2.Http
-    httplib2.Http = MockHttp
-
     p = Patu(urls=['www.djangoproject.com'], depth=1)
     def ctrl_c():
         raise KeyboardInterrupt
     p.process_next_url = ctrl_c
     p.crawl()
-
-    httplib2.Http = h
     eq_(p.seen_urls, set([]))
 
+@with_setup(mock, unmock)
 def test_redirect():
-    h = httplib2.Http
-    httplib2.Http = MockHttp
-
     p = Patu(urls=['redirect.me'], depth=2)
     p.constraints += ['www.djangoproject.com']
     p.crawl()
-
-    httplib2.Http = h
     eq_(p.seen_urls, SEEN_URLS.union(set(['http://redirect.me'])))
+
+@with_setup(mock, unmock)
+def test_options():
+    with open('.test_generated.txt', 'w') as f:
+        s = sys.stdout
+        sys.stdout = f
+
+        sys.argv = ['patu.py', 'error.me']
+        
+        main()
+
+        sys.stdout = s
+    with open('.test_generated.txt', 'r') as f:
+        eq_(f.read().strip(), '[500] http://error.me (from None)')
