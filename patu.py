@@ -19,14 +19,11 @@ class Spinner(object):
         self.status = (self.status + 1) % 4
 
 class Response(object):
-    def __init__(self, url="", status_code=-1, content=None, links=[]):
+    def __init__(self, url, status_code=-1, content=None, links=[], location=None):
         self.url = url
         self.status_code = status_code
         self.content = content
         self.links = links
-
-class RedirectError(Exception):
-    def __init__(self, location):
         self.location = location
 
 class Patu(object):
@@ -77,16 +74,11 @@ class Patu(object):
         """
         try:
             h = httplib2.Http(timeout = 60)
-            while True:
-                for url in iter(self.task_queue.get, 'STOP'):
-                    try:
-                        result = self.get_urls(h, url)
-                    except RedirectError, e:
-                        self.task_queue.put(e.location)
-                    else:
-                        self.done_queue.put(result)
+            for url in iter(self.task_queue.get, 'STOP'):
+                result = self.get_urls(h, url)
+                self.done_queue.put(result)
         except KeyboardInterrupt:
-            pass
+            self.done_queue.put(Response(url, -1))
 
     def get_urls(self, h, url):
         """
@@ -96,7 +88,7 @@ class Patu(object):
         try:
             resp, content = h.request(url)
             if 300 <= resp.status < 400:
-                raise RedirectError(resp.location)
+                return Response(url, resp.status, location=resp.location)
             elif self.input_file:
                 # Short-circuit if we got our list of links from a file
                 return Response(url, resp.status)
@@ -142,6 +134,9 @@ class Patu(object):
             if link not in self.seen_urls and link not in self.queued_urls:
                 # remember what url referenced this link
                 self.next_urls[link] = response.url
+        l = response.location
+        if l and l not in self.seen_urls and l not in self.queued_urls:
+            self.next_urls[response.location] = response.url
 
     def crawl(self):
         # For the next level
