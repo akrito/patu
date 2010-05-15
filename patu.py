@@ -87,16 +87,19 @@ class Patu(object):
         links = []
         try:
             resp, content = h.request(url)
-            if 300 <= resp.status < 400:
-                return Response(url, resp.status, location=resp.location)
-            elif self.input_file:
+            if self.input_file:
                 # Short-circuit if we got our list of links from a file
                 return Response(url, resp.status)
             elif resp.status != 200:
                 return Response(url, resp.status)
+            elif urlsplit(resp['content-location']).netloc not in self.constraints:
+                # httplib2 follows redirects automatically
+                # Check to make sure we've not been redirected off-site
+                return Response(url, resp.status)
             else:
                 html = fromstring(content)
-        except Exception:
+        except Exception, e:
+            print "%s %s" % (type(e), str(e))
             return Response(url)
 
         # Add relevant links
@@ -134,9 +137,6 @@ class Patu(object):
             if link not in self.seen_urls and link not in self.queued_urls:
                 # remember what url referenced this link
                 self.next_urls[link] = response.url
-        l = response.location
-        if l and l not in self.seen_urls and l not in self.queued_urls:
-            self.next_urls[response.location] = response.url
 
     def crawl(self):
         # For the next level

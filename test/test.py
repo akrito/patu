@@ -41,17 +41,18 @@ LINKS = ['http://www.djangoproject.com/',
          'http://www.djangoproject.com/foundation/']
 
 class MockHttpResponse(dict):
-    def __init__(self, url, status=200, location=None):
+    def __init__(self, url, status = 200, **kwargs):
+        for key, value in kwargs:
+            setattr(self, key, value)
         self.status = status
-        self.location = location
         self['content-location'] = url
 
 class MockHttp(httplib2.Http):
     h = httplib2.Http
     def request(self, url):
         if url == 'http://redirect.me':
-            resp = MockHttpResponse(url, status=301, location='http://www.djangoproject.com')
-            content = ''
+            resp = MockHttpResponse(url = 'http://www.djangoproject.com')
+            content = open(TEST_HTML).read()
         elif url == 'http://error.me':
             resp = MockHttpResponse(url, status=500)
             content = ''
@@ -59,6 +60,9 @@ class MockHttp(httplib2.Http):
             raise KeyboardInterrupt
         elif url == 'http://io.me':
             raise IOError
+        elif url == 'http://www.djangoproject.com/offsite_redirect':
+            resp = MockHttpResponse(url = 'http://www.other-site.com')
+            content = open(TEST_HTML).read()
         else:
             resp = MockHttpResponse(url)
             content = open(TEST_HTML).read()
@@ -154,8 +158,12 @@ def test_worker():
 
 @with_setup(mock, unmock)
 def test_worker_statuses():
+    """
+    This is kind of wanking - just trying to get test coverage in the worker
+    processes
+    """
     url_statuses = [
-        ('redirect.me', 301),
+        ('www.djangoproject.com/offsite_redirect', 200),
         ('error.me', 500),
         ('io.me', -1),
         ('keyboard.me', -1)
@@ -210,10 +218,9 @@ def test_main_process_keyboard():
 
 @with_setup(mock, unmock)
 def test_redirect():
-    p = Patu(urls=['redirect.me'], depth=2)
-    p.constraints += ['www.djangoproject.com']
+    p = Patu(urls=['www.djangoproject.com/offsite_redirect'], depth=2)
     p.crawl()
-    eq_(p.seen_urls, SEEN_URLS.union(set(['http://redirect.me'])))
+    eq_(p.seen_urls, set(['http://www.djangoproject.com/offsite_redirect']))
 
 @with_setup(mock, unmock)
 def test_options():
