@@ -19,12 +19,11 @@ class Spinner(object):
         self.status = (self.status + 1) % 4
 
 class Response(object):
-    def __init__(self, url, status_code=-1, content=None, links=[], location=None):
+    def __init__(self, url, status_code=-1, content=None, links=[]):
         self.url = url
         self.status_code = status_code
         self.content = content
         self.links = links
-        self.location = location
 
 class Patu(object):
 
