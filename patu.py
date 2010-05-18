@@ -54,9 +54,18 @@ class Patu(object):
             f.close()
         else:
             self.urls = []
+            h = httplib2.Http(timeout = 60)
             for url in urls:
                 if not url.startswith("http://"):
                     url = "http://" + url
+                # Follow initial redirects here to set self.constraints
+                try:
+                    resp, content = h.request(url)
+                    url = resp['content-location']
+                except:
+                    # This URL is no good. Keep it in the queue to show the
+                    # error later
+                    pass
                 self.urls.append(url)
                 self.next_urls[url] = None
             self.constraints = [''] + [urlsplit(url).netloc for url in self.urls]

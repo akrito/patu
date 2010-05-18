@@ -53,6 +53,9 @@ class MockHttp(httplib2.Http):
         if url == 'http://redirect.me':
             resp = MockHttpResponse(url = 'http://www.djangoproject.com')
             content = open(TEST_HTML).read()
+        elif url == 'http://djangoproject.com':
+            resp = MockHttpResponse(url = 'http://www.djangoproject.com')
+            content = open(TEST_HTML).read()
         elif url == 'http://error.me':
             resp = MockHttpResponse(url, status=500)
             content = ''
@@ -73,7 +76,7 @@ def mock():
 
 def unmock():
     httplib2.Http = MockHttp.h
-    
+
 def test_parse_html():
     p = Patu(urls=[TEST_URL])
     r = p.get_urls(MockHttp(), TEST_URL)
@@ -176,7 +179,6 @@ def test_worker_statuses():
         p.task_queue.put('STOP')
         p.worker()
         u = p.done_queue.get()
-        eq_(u.url, 'http://' + address)
         eq_(u.status_code, error_code)
 
 @with_setup(mock, unmock)
@@ -218,9 +220,20 @@ def test_main_process_keyboard():
 
 @with_setup(mock, unmock)
 def test_redirect():
-    p = Patu(urls=['www.djangoproject.com/offsite_redirect'], depth=2)
+    p = Patu(urls=['www.djangoproject.com'])
+    r = p.get_urls(MockHttp(), 'http://www.djangoproject.com/offsite_redirect')
+    eq_(r.url, 'http://www.djangoproject.com/offsite_redirect')
+    eq_(r.links, [])
+    eq_(r.status_code, 200)
+
+@with_setup(mock, unmock)
+def test_initial_redirect():
+    p = Patu(urls=['redirect.me'], depth=2)
     p.crawl()
-    eq_(p.seen_urls, set(['http://www.djangoproject.com/offsite_redirect']))
+    eq_(p.seen_urls, SEEN_URLS)
+    p = Patu(urls=['djangoproject.com'], depth=2)
+    p.crawl()
+    eq_(p.seen_urls, SEEN_URLS)
 
 @with_setup(mock, unmock)
 def test_options():
@@ -229,7 +242,7 @@ def test_options():
         sys.stdout = f
 
         sys.argv = ['patu.py', 'error.me']
-        
+
         main()
 
         sys.stdout = s
