@@ -14,7 +14,9 @@ setup(
     author_email = 'alex@8bitb.us',
     description = 'Patu is a small spider',
     long_description = long_desc,
-    scripts = ['scripts/patu'],
+    entry_points = {
+        'console_scripts': ['patu = patu:main']
+    },
     install_requires = ['httplib2', 'lxml'],
     py_modules = ['patu'],
 )
