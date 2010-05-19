@@ -1,5 +1,4 @@
 include *.md
 include LICENSE
-include test.py
 include test/test.html
 include test/test_input.txt
