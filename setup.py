@@ -11,6 +11,7 @@ setup(
     version = '0.1',
     url = 'http://github.com/akrito/patu',
     author = 'Alex Kritikos',
+    author_email = 'alex@8bitb.us',
     description = 'Patu is a small spider',
     long_description = long_desc,
     scripts = ['scripts/patu'],
