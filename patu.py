@@ -161,10 +161,14 @@ class Patu(object):
                     print "Starting link depth %s" % current_depth
                     sys.stdout.flush()
 
-                # place next urls into the task queue
+                # place next urls into the task queue, possibly
+                # short-circuiting if we're generating them
                 for url, referer in self.next_urls.iteritems():
                     self.queued_urls[url] = referer
-                    self.task_queue.put(url)
+                    if self.generate and current_depth == self.depth:
+                        self.done_queue.put(Response(url, 200))
+                    else:
+                        self.task_queue.put(url)
                 self.next_urls = {}
 
                 while len(self.queued_urls) > 0:
