@@ -79,16 +79,16 @@ class Patu(object):
         """
         Function run by worker processes
         """
-        result = self.get_urls(url)
+        h = httplib2.Http(timeout = 60)
+        result = self.get_urls(h, url)
         self.done_queue.put(result)
 
-    def get_urls(self, url):
+    def get_urls(self, h, url):
         """
         Function used to calculate result
         """
         links = []
         try:
-            h = httplib2.Http(timeout = 60)
             resp, content = h.request(url)
             if self.input_file:
                 # Short-circuit if we got our list of links from a file
