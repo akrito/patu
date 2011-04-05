@@ -1,3 +1,4 @@
+from gevent import Greenlet
 import httplib2
 from nose.tools import eq_, with_setup
 from os import path, remove
@@ -59,8 +60,6 @@ class MockHttp(httplib2.Http):
         elif url == 'http://error.me':
             resp = MockHttpResponse(url, status=500)
             content = ''
-        elif url == 'http://keyboard.me':
-            raise KeyboardInterrupt
         elif url == 'http://io.me':
             raise IOError
         elif url == 'http://www.djangoproject.com/offsite_redirect':
@@ -151,9 +150,7 @@ def test_no_http():
 def test_worker():
     p = Patu(urls=['www.djangoproject.com'], depth=1)
     for url, referer in p.next_urls.iteritems():
-        p.task_queue.put(url)
-    p.task_queue.put('STOP')
-    p.worker()
+        Greenlet.spawn(p.worker, url)
     content = p.done_queue.get().content
 
     with open(TEST_HTML) as f:
@@ -169,15 +166,12 @@ def test_worker_statuses():
         ('www.djangoproject.com/offsite_redirect', 200),
         ('error.me', 500),
         ('io.me', -1),
-        ('keyboard.me', -1)
         ]
 
     for address, error_code in url_statuses:
         p = Patu(urls=[address], depth=1)
         for url, referer in p.next_urls.iteritems():
-            p.task_queue.put(url)
-        p.task_queue.put('STOP')
-        p.worker()
+            Greenlet.spawn(p.worker, url)
         u = p.done_queue.get()
         eq_(u.status_code, error_code)
 
@@ -185,9 +179,7 @@ def test_worker_statuses():
 def test_worker_input_file():
     p = Patu(urls=['www.djangoproject.com'], depth=1, input_file=TEST_INPUT)
     for url, referer in p.next_urls.iteritems():
-        p.task_queue.put(url)
-    p.task_queue.put('STOP')
-    p.worker()
+        Greenlet.spawn(p.worker, url)
     p.done_queue.put('STOP')
     for u in iter(p.done_queue.get, 'STOP'):
         try:
@@ -208,15 +200,6 @@ def test_error():
         sys.stdout = s
     with open('.test_generated.txt', 'r') as f:
         eq_(f.read().strip(), '[500] http://error.me (from None)')
-
-@with_setup(mock, unmock)
-def test_main_process_keyboard():
-    p = Patu(urls=['www.djangoproject.com'], depth=1)
-    def ctrl_c():
-        raise KeyboardInterrupt
-    p.process_next_url = ctrl_c
-    p.crawl()
-    eq_(p.seen_urls, set([]))
 
 @with_setup(mock, unmock)
 def test_redirect():
