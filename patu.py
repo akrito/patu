@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
+from gevent import monkey, queue, Greenlet
+monkey.patch_socket()
 import httplib2
 import sys
 from lxml.html import fromstring
 from optparse import OptionParser
-from multiprocessing import Process, Queue
 from urlparse import urlsplit, urljoin, urlunsplit
 
 
@@ -27,11 +28,10 @@ class Response(object):
 
 class Patu(object):
 
-    def __init__(self, urls=[], spiders=1, spinner=True, verbose=False, depth=-1, input_file=None, generate=False):
+    def __init__(self, urls=[], spinner=True, verbose=False, depth=-1, input_file=None, generate=False):
         # Set up the multiprocessing bits
         self.processes = []
-        self.task_queue = Queue()
-        self.done_queue = Queue()
+        self.done_queue = queue.Queue()
         self.next_urls = {}
         self.queued_urls = {}
         self.seen_urls = set()
@@ -69,31 +69,26 @@ class Patu(object):
                 self.urls.append(url)
                 self.next_urls[url] = None
             self.constraints = [''] + [urlsplit(url).netloc for url in self.urls]
-        self.spiders = spiders
         self.show_spinner = spinner
         self.verbose = verbose
         self.depth = depth
         self.input_file = input_file
         self.generate = generate
 
-    def worker(self):
+    def worker(self, url):
         """
         Function run by worker processes
         """
-        try:
-            h = httplib2.Http(timeout = 60)
-            for url in iter(self.task_queue.get, 'STOP'):
-                result = self.get_urls(h, url)
-                self.done_queue.put(result)
-        except KeyboardInterrupt:
-            self.done_queue.put(Response(url, -1))
+        result = self.get_urls(url)
+        self.done_queue.put(result)
 
-    def get_urls(self, h, url):
+    def get_urls(self, url):
         """
         Function used to calculate result
         """
         links = []
         try:
+            h = httplib2.Http(timeout = 60)
             resp, content = h.request(url)
             if self.input_file:
                 # Short-circuit if we got our list of links from a file
@@ -149,47 +144,28 @@ class Patu(object):
     def crawl(self):
         # For the next level
         current_depth = 0
-        try:
-            # Start worker processes
-            for i in range(self.spiders):
-                p = Process(target=self.worker)
-                p.start()
-                self.processes.append(p)
+        while len(self.next_urls) > 0 and (current_depth <= self.depth or self.depth == -1):
+            if self.verbose:
+                print "Starting link depth %s" % current_depth
+                sys.stdout.flush()
 
-            while len(self.next_urls) > 0 and (current_depth <= self.depth or self.depth == -1):
-                if self.verbose:
-                    print "Starting link depth %s" % current_depth
-                    sys.stdout.flush()
+            # place next urls into the task queue, possibly
+            # short-circuiting if we're generating them
+            for url, referer in self.next_urls.iteritems():
+                self.queued_urls[url] = referer
+                if self.generate and current_depth == self.depth:
+                    self.done_queue.put(Response(url, 200))
+                else:
+                    Greenlet.spawn(self.worker, url)
+            self.next_urls = {}
 
-                # place next urls into the task queue, possibly
-                # short-circuiting if we're generating them
-                for url, referer in self.next_urls.iteritems():
-                    self.queued_urls[url] = referer
-                    if self.generate and current_depth == self.depth:
-                        self.done_queue.put(Response(url, 200))
-                    else:
-                        self.task_queue.put(url)
-                self.next_urls = {}
-
-                while len(self.queued_urls) > 0:
-                    self.process_next_url()
-                current_depth += 1
-
-        except KeyboardInterrupt:
-            pass
-        finally:
-            # Give the spiders a chance to exit cleanly
-            for i in range(self.spiders):
-                self.task_queue.put('STOP')
-            for p in self.processes:
-                # Forcefully close the spiders
-                p.terminate()
-                p.join()
+            while len(self.queued_urls) > 0:
+                self.process_next_url()
+            current_depth += 1
 
 def main():
     parser = OptionParser()
     options_a = [
-        ["-s", "--spiders", dict(dest="spiders", type="int", default=1, help="sends more than one spider")],
         ["-S", "--nospinner", dict(dest="spinner", action="store_false", default=True, help="turns off the spinner")],
         ["-v", "--verbose", dict(dest="verbose", action="store_true", default=False, help="outputs every request (implies --nospiner)")],
         ["-d", "--depth", dict(dest="depth", type="int", default=-1, help="does a breadth-first crawl, stopping after DEPTH levels")],
@@ -203,7 +179,6 @@ def main():
     urls = [unicode(url) for url in args]
     kwargs = {
         'urls': urls,
-        'spiders': options.spiders,
         'spinner': options.spinner,
         'verbose': options.verbose,
         'depth': options.depth,
