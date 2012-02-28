@@ -4,6 +4,8 @@ Patu
 A small spider, useful for checking a site for 404s and 500s. Patu requires httplib2 and lxml:
 
     pip install -U httplib2 lxml
+    
+Is it safe? [![Build Status](https://secure.travis-ci.org/akrito/patu.png?branch=master)](http://travis-ci.org/akrito/patu)
 
 Quick Usage
 ===========
